@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tracking Comparison Dashboard</title>
+  <style>
+    /* Reset e configurações básicas */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background-color: #f5f5f5; color: #333; min-height: 100vh; }
+
+    header {
+      background-color: #000;
+      color: #fff;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+    }
+    header .user-info {
+      position: absolute;
+      right: 20px;
+      bottom: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+    }
+    .logo-container { display: flex; align-items: center; }
+    .logo-container img { height: 40px; margin-right: 15px; }
+    .logo-container h1 { font-size: 24px; }
+
+    .wrapper { display: flex; margin-top: 80px; }
+
+    nav {
+      background-color: #333;
+      width: 250px;
+      padding: 20px;
+      color: #fff;
+    }
+    nav h2 { margin-bottom: 15px; font-size: 18px; text-align: center; }
+    nav h3 {
+      font-size: 16px; margin-top: 15px; margin-bottom: 5px;
+      text-align: center; font-weight: bold;
+    }
+    nav label { font-size: 14px; margin-top: 10px; display: block; text-align: center; }
+    .custom-file { position: relative; margin-bottom: 15px; }
+    .custom-file input[type="file"] { display: none; }
+    .custom-file-label {
+      display: block; padding: 8px; border: 1px solid #ccc;
+      border-radius: 8px; cursor: pointer; text-align: center;
+      transition: background-color 0.3s; background-color: #fdf4e3; color: #333;
+    }
+    .custom-file-label.no-file {
+      background-color: #333; color: #fff;
+    }
+    .custom-file-label:hover { background-color: #e0d0a0; }
+
+    .summary { text-align: center; margin-bottom: 15px; }
+    .summary-item { margin-bottom: 10px; }
+    .summary-title { font-weight: bold; margin-bottom: 5px; }
+    .summary-value {
+      color: gold; font-size: 20px; font-weight: bold; text-align: center;
+    }
+
+    /* Links de controle */
+    #viewMissingLink, #viewChartLink {
+      display: block;
+      text-align: center;
+      margin: 10px 0;
+      color: #fff;
+      background-color: #555;
+      padding: 6px;
+      border-radius: 4px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    #viewMissingLink:hover, #viewChartLink:hover {
+      background-color: #666;
+    }
+
+    #downloadLink, #clearLink {
+      display: block; text-align: center; margin-top: 10px;
+      color: gold; font-weight: bold; text-decoration: none;
+      cursor: pointer;
+    }
+    #downloadLink:hover, #clearLink:hover { text-decoration: underline; }
+
+    main { flex: 1; padding: 20px; background-color: #fff; }
+    main h2 { margin-bottom: 20px; color: #000; }
+
+    /* Container switch */
+    #chartContainer { display: none; width: 100%; max-width: 400px; margin: auto; }
+    #summaryChart { width: 100% !important; height: auto !important; }
+    #tableContainer { display: block; max-height: calc(100vh - 160px); overflow-y: auto; }
+
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc; padding: 8px; text-align: center;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #000; color: #fff;
+      position: sticky; top: 0; z-index: 2;
+    }
+    td:first-child, th:first-child { min-width: 100px; }
+
+    /* Fonte menor só para células de dados */
+    #resultTable tbody td { font-size: 12px; }
+
+    .match-yes { background-color: #d4edda; }
+    .match-yes-question { background-color: #ffe5b4; }
+    .match-no { background-color: #f8d7da; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="logo-container">
+      <img src="logo-dhl-selfridges.png" alt="DHL & Selfridges Logo">
+      <h1>Tracking Comparison Dashboard</h1>
+    </div>
+    <div class="user-info">Victor Ribeiro (DHL Supply Chain)</div>
+  </header>
+
+  <div class="wrapper">
+    <nav>
+      <h2>File Uploads</h2>
+      <h3>DPD Checks</h3>
+      <div class="custom-file">
+        <label for="dpdFile" class="custom-file-label no-file" id="dpdFileLabel">No file chosen</label>
+        <input type="file" id="dpdFile" accept=".xlsx">
+      </div>
+      <h3>Selfridges Manifest</h3>
+      <div class="custom-file">
+        <label for="selfridgesFile" class="custom-file-label no-file" id="selfridgesFileLabel">No file chosen</label>
+        <input type="file" id="selfridgesFile" accept=".xlsx">
+      </div>
+      <h2>Summary</h2>
+      <div class="summary">
+        <div class="summary-item">
+          <div class="summary-title">Selfridges Manifest</div>
+          <div class="summary-value" id="internalTotal">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-title">Internal (DHL/Selfridges)</div>
+          <div class="summary-value" id="dpdTotal">0</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-title">Missing</div>
+          <div class="summary-value" id="missingCount">0</div>
+        </div>
+      </div>
+      <a id="viewMissingLink" href="#">View Missing</a>
+      <a id="viewChartLink" href="#">View Chart</a>
+      <a id="downloadLink" href="#">Download Result XLSX</a>
+      <a id="clearLink" href="#">Clear</a>
+    </nav>
+
+    <main>
+      <h2>Comparison Results</h2>
+      <div id="chartContainer">
+        <canvas id="summaryChart"></canvas>
+      </div>
+      <div id="tableContainer">
+        <div class="table-wrapper">
+          <table id="resultTable">
+            <thead>
+              <tr>
+                <th>DPD Date</th>
+                <th>DPD Tracking Number</th>
+                <th>Match</th>
+                <th>Manifest Date</th>
+                <th>Manifest Parcel No</th>
+                <th>Delivery Address</th>
+                <th>Customer Ref</th>
+                <th>Attempt</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let dpdData = [], manifestData = [], storedg = [];
+    let showingMissingOnly = false, showingChartOnly = false;
+    let summaryChart;
+
+    function convertExcelDate(excelDate) {
+      if (typeof excelDate === "number") {
+        const d = new Date((excelDate - 25569) * 86400 * 1000),
+              dd = d.getDate().toString().padStart(2,'0'),
+              mm = (d.getMonth()+1).toString().padStart(2,'0'),
+              yy = d.getFullYear();
+        return `${dd}-${mm}-${yy}`;
+      }
+      return excelDate;
+    }
+
+    function saveData() {
+      localStorage.setItem("dpdData", JSON.stringify(dpdData));
+      localStorage.setItem("manifestData", JSON.stringify(manifestData));
+      localStorage.setItem("storedg", JSON.stringify(storedg));
+    }
+
+    function loadData() {
+      const d = localStorage.getItem("dpdData"),
+            m = localStorage.getItem("manifestData"),
+            s = localStorage.getItem("storedg");
+      if (d) dpdData = JSON.parse(d);
+      if (m) manifestData = JSON.parse(m);
+      if (s) {
+        storedg = JSON.parse(s);
+        renderTable(storedg);
+      }
+      updateSummary();
+    }
+
+    function updateFileLabel(i,l) {
+      const inp = document.getElementById(i),
+            lbl = document.getElementById(l),
+            name = inp.files[0] ? inp.files[0].name : "No file chosen";
+      lbl.textContent = name;
+      lbl.classList.toggle("no-file", !inp.files[0]);
+    }
+
+    function cleanParcelNumber(p) {
+      let c = p.toString().replace(/\s/g,'').replace(/[^\d]*$/,'');
+      if (c.length > 14) c = c.substring(0,14);
+      return c;
+    }
+
+    function extractCustomerRef(r) {
+      return r.toString().split(',')[0].trim();
+    }
+
+    document.getElementById('dpdFile').addEventListener('change', e => {
+      updateFileLabel('dpdFile','dpdFileLabel');
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        const ua = new Uint8Array(ev.target.result),
+              wb = XLSX.read(ua,{type:'array'}),
+              ws = wb.Sheets[wb.SheetNames[0]],
+              jd = XLSX.utils.sheet_to_json(ws,{header:1});
+        dpdData = [];
+        const h = jd[0], di = h.indexOf("Date"), ti = h.indexOf("Tracking Number");
+        for (let i=1; i<jd.length; i++){
+          const row = jd[i];
+          if (!row.length) continue;
+          dpdData.push({
+            date: convertExcelDate(row[di]),
+            tracking: row[ti].toString().trim()
+          });
+        }
+        updateSummary();
+        mergeData();
+        saveData();
+      };
+      r.readAsArrayBuffer(f);
+    });
+
+    document.getElementById('selfridgesFile').addEventListener('change', e => {
+      updateFileLabel('selfridgesFile','selfridgesFileLabel');
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        const ua = new Uint8Array(ev.target.result),
+              wb = XLSX.read(ua,{type:'array'}),
+              ws = wb.Sheets[wb.SheetNames[0]],
+              jd = XLSX.utils.sheet_to_json(ws,{header:1});
+        manifestData = [];
+        const hdr = jd[0].map(x => typeof x==='string'?x.trim():x),
+              dateIndex     = 7,
+              trackingIndex = 3,
+              deliveryIndex = hdr.indexOf("Delivery Address")!==-1 ? hdr.indexOf("Delivery Address") : 10,
+              custRefIndex  = hdr.indexOf("Customer Ref")!==-1      ? hdr.indexOf("Customer Ref")      : 14,
+              attemptIndex  = hdr.indexOf("Attempt")!==-1           ? hdr.indexOf("Attempt")           : 12;
+        for (let i=1; i<jd.length; i++){
+          const row = jd[i];
+          if (!row.length) continue;
+          const addr = row[deliveryIndex] ? row[deliveryIndex].toString() : "";
+          if (!addr.includes("Returns")) continue;
+          const raw = row[trackingIndex].toString(),
+                trk = cleanParcelNumber(raw),
+                dr  = addr.replace(/^[.\s]+/,'').split(',')[0].trim(),
+                cr  = row[custRefIndex] ? extractCustomerRef(row[custRefIndex].toString()) : "",
+                at  = row[attemptIndex] ? row[attemptIndex].toString().trim() : "";
+          manifestData.push({
+            date: convertExcelDate(row[dateIndex]),
+            tracking: trk,
+            deliveryAddress: dr,
+            customerRef: cr,
+            attempt: at
+          });
+        }
+        const returnSet = new Set(manifestData.map(x=>x.tracking));
+        dpdData = dpdData.filter(x=> returnSet.has(x.tracking));
+        updateSummary();
+        mergeData();
+        saveData();
+      };
+      r.readAsArrayBuffer(f);
+    });
+
+    function updateSummary(){
+      document.getElementById('internalTotal').innerText = manifestData.length;
+      const internalCount = storedg.filter(item => item.dpdTracking !== "").length;
+      document.getElementById('dpdTotal').innerText = internalCount;
+      const missingCount = storedg.filter(item => item.dpdTracking === "").length;
+      document.getElementById('missingCount').innerText = missingCount;
+    }
+
+    function mergeData(){
+      storedg = [];
+      const used = Array(manifestData.length).fill(false);
+
+      dpdData.forEach(d => {
+        let found = false;
+        manifestData.forEach((m,i) => {
+          if (d.tracking === m.tracking) {
+            found = true; used[i] = true;
+            const mt  = d.date === m.date ? "Yes" : "Yes?";
+            const cls = d.date === m.date ? "match-yes" : "match-yes-question";
+            storedg.push({
+              dpdDate: d.date,
+              dpdTracking: d.tracking,
+              match: mt,
+              matchClass: cls,
+              manifestDate: m.date,
+              manifestTracking: m.tracking,
+              deliveryAddress: m.deliveryAddress,
+              customerRef: m.customerRef,
+              attempt: m.attempt
+            });
+          }
+        });
+        if (!found) {
+          storedg.push({
+            dpdDate: d.date,
+            dpdTracking: d.tracking,
+            match: "No",
+            matchClass: "match-no",
+            manifestDate: "",
+            manifestTracking: "",
+            deliveryAddress: "",
+            customerRef: "",
+            attempt: ""
+          });
+        }
+      });
+
+      manifestData.forEach((m,i) => {
+        if (!used[i]) {
+          storedg.push({
+            dpdDate: "",
+            dpdTracking: "",
+            match: "No",
+            matchClass: "match-no",
+            manifestDate: m.date,
+            manifestTracking: m.tracking,
+            deliveryAddress: m.deliveryAddress,
+            customerRef: m.customerRef,
+            attempt: m.attempt
+          });
+        }
+      });
+
+      storedg.sort((a,b) => {
+        const da = a.dpdDate || a.manifestDate,
+              db = b.dpdDate || b.manifestDate;
+        const [dA,mA,yA] = da.split('-').map(Number),
+              [dB,mB,yB] = db.split('-').map(Number);
+        return new Date(yA,mA-1,dA) - new Date(yB,mB-1,dB);
+      });
+
+      updateSummary();
+
+      if (showingChartOnly) {
+        drawChart();
+        document.getElementById('chartContainer').style.display = 'block';
+        document.getElementById('tableContainer').style.display = 'none';
+      } else {
+        renderTable(
+          showingMissingOnly
+            ? storedg.filter(row => row.match === "No")
+            : storedg
+        );
+      }
+    }
+
+    function renderTable(data){
+      document.getElementById('chartContainer').style.display = 'none';
+      document.getElementById('tableContainer').style.display = 'block';
+      const tbody = document.querySelector('#resultTable tbody');
+      tbody.innerHTML = "";
+      const dpdC = {}, mfC = {};
+      data.forEach(it=>{
+        if(it.dpdTracking) dpdC[it.dpdTracking] = (dpdC[it.dpdTracking]||0)+1;
+        if(it.manifestTracking) mfC[it.manifestTracking] = (mfC[it.manifestTracking]||0)+1;
+      });
+      function setCell(td,v){
+        if(!v||!v.toString().trim()){
+          td.innerText="Missing";
+          td.style.backgroundColor="#ffc0c0";
+        } else td.innerText=v;
+        td.style.textAlign="center";
+      }
+      data.forEach(it=>{
+        const tr = document.createElement('tr'),
+              c1 = document.createElement('td'),
+              c2 = document.createElement('td'),
+              c3 = document.createElement('td'),
+              c4 = document.createElement('td'),
+              c5 = document.createElement('td'),
+              c6 = document.createElement('td'),
+              c7 = document.createElement('td'),
+              c8 = document.createElement('td');
+        setCell(c1,it.dpdDate);
+        if(it.dpdTracking && dpdC[it.dpdTracking]>1){
+          c2.innerText = `${it.dpdTracking} (dup. ${dpdC[it.dpdTracking]})`;
+          c2.style.backgroundColor="red"; c2.style.color="#fff";
+        } else setCell(c2,it.dpdTracking);
+        setCell(c3,it.match); c3.className = it.matchClass;
+        setCell(c4,it.manifestDate);
+        if(it.manifestTracking && mfC[it.manifestTracking]>1){
+          c5.innerText = `${it.manifestTracking} (dup. ${mfC[it.manifestTracking]})`;
+          c5.style.backgroundColor="red"; c5.style.color="#fff";
+        } else setCell(c5,it.manifestTracking);
+        setCell(c6,it.deliveryAddress);
+        setCell(c7,it.customerRef);
+        setCell(c8,it.attempt);
+        [c1,c2,c3,c4,c5,c6,c7,c8].forEach(x=>tr.appendChild(x));
+        tbody.appendChild(tr);
+      });
+      saveData();
+    }
+
+    function drawChart(){
+      const total    = manifestData.length;
+      const internal = dpdData.length;
+      const missing  = storedg.filter(item => item.dpdTracking === "").length;
+      const data   = [ total, internal, missing ];
+      const labels = ['Manifest','Internal','Missing'];
+
+      if (summaryChart) summaryChart.destroy();
+      const ctx = document.getElementById('summaryChart').getContext('2d');
+      summaryChart = new Chart(ctx, {
+        type: 'pie',
+        data: { labels, datasets: [{ data, backgroundColor: ['#3498db','#27ae60','#e74c3c'] }] },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  const val = context.parsed;
+                  const sum = context.dataset.data.reduce((a,b)=>a+b,0);
+                  const pct = ((val/sum)*100).toFixed(1);
+                  return `${context.label}: ${val} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    document.getElementById('viewMissingLink').addEventListener('click', e=>{
+      e.preventDefault();
+      showingMissingOnly = !showingMissingOnly;
+      e.target.textContent = showingMissingOnly ? "Show All" : "View Missing";
+      showingChartOnly = false;
+      mergeData();
+    });
+
+    document.getElementById('viewChartLink').addEventListener('click', e=>{
+      e.preventDefault();
+      showingChartOnly = !showingChartOnly;
+      e.target.textContent = showingChartOnly ? "Show Table" : "View Chart";
+      mergeData();
+    });
+
+    document.getElementById('downloadLink').addEventListener('click', e=>{
+      e.preventDefault();
+      const wb = XLSX.utils.book_new(),
+            ws = [["DPD Date","DPD Tracking Number","Match","Manifest Date","Manifest Parcel No","Delivery Address","Customer Ref","Attempt"]];
+      storedg.forEach(it=>ws.push([
+        it.dpdDate,it.dpdTracking,it.match,
+        it.manifestDate,it.manifestTracking,
+        it.deliveryAddress,it.customerRef,it.attempt
+      ]));
+      const sheet = XLSX.utils.aoa_to_sheet(ws);
+      sheet['!cols'] = [
+        {wch:15},{wch:25},{wch:10},
+        {wch:15},{wch:25},{wch:30},{wch:20},{wch:15}
+      ];
+      XLSX.utils.book_append_sheet(wb,sheet,"Comparison");
+      XLSX.writeFile(wb,"Comparison_Result.xlsx");
+    });
+
+    document.getElementById('clearLink').addEventListener('click', e=>{
+      e.preventDefault();
+      dpdData=[]; manifestData=[]; storedg=[];
+      localStorage.removeItem("dpdData");
+      localStorage.removeItem("manifestData");
+      localStorage.removeItem("storedg");
+      updateSummary();
+      document.querySelector('#resultTable tbody').innerHTML="";
+      document.getElementById('chartContainer').style.display='none';
+      document.getElementById('tableContainer').style.display='block';
+      document.getElementById('viewMissingLink').textContent="View Missing";
+      document.getElementById('viewChartLink').textContent="View Chart";
+    });
+
+    window.addEventListener("load", loadData);
+  </script>
+</body>
+</html>

@@ -312,12 +312,16 @@
     });
 
     function updateSummary(){
-      document.getElementById('internalTotal').innerText = manifestData.length;
-      const internalCount = storedg.filter(item => item.dpdTracking !== "").length;
-      document.getElementById('dpdTotal').innerText = internalCount;
-      const missingCount = storedg.filter(item => item.dpdTracking === "").length;
-      document.getElementById('missingCount').innerText = missingCount;
-    }
+  const total       = manifestData.length;             // 717
+  const missing     = storedg.filter(i => i.dpdTracking === "").length; // 5
+  const matchedRows = total - missing;                 // 712
+
+  document.getElementById('internalTotal').innerText = total;
+  document.getElementById('dpdTotal').innerText      = matchedRows;
+  document.getElementById('missingCount').innerText  = missing;
+}
+
+
 
     function mergeData(){
       storedg = [];
